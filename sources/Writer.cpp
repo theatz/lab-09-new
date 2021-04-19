@@ -6,7 +6,8 @@
 Writer::Writer(std::string& output, IManager& manager)
     : _output(output), _manager(manager)
 {}
-void Writer::Write(std::string& to_write) {
+
+void Writer::Write(std::string&& to_write) {
   std::ofstream out;
   out.open(_output, std::ios::app);
   if (out.is_open())

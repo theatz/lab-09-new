@@ -15,7 +15,7 @@ class Writer
 {
  public:
   Writer(std::string& output, IManager& manager);
-  void Write(std::string& to_write);
+  void Write(std::string&& to_write);
 
  private:
   std::mutex _lock;

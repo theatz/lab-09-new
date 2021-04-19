@@ -19,8 +19,8 @@ class ThreadPool {
  public:
   ThreadPool(size_t);
   template<class F, class... Args>
-  void enqueue(F&& f, Args&& ...args);
-//  -> std::future<typename std::result_of<F(Args...)>::type>;
+  auto enqueue(F&& f, Args&&... args)
+  -> std::future<typename std::result_of<F(Args...)>::type>;
   void Stop();
   ~ThreadPool() = default;
  private:
@@ -65,13 +65,16 @@ inline ThreadPool::ThreadPool(size_t threads)
 
 // add new work item to the pool
 template<class F, class... Args>
-void ThreadPool::enqueue(F&& f, Args&& ...args)
+auto ThreadPool::enqueue(F&& f, Args&&... args)
+-> std::future<typename std::result_of<F(Args...)>::type>
 {
+  using return_type = typename std::result_of<F(Args...)>::type;
 
-  auto task = std::make_shared< std::packaged_task<void()> >(
+  auto task = std::make_shared< std::packaged_task<return_type()> >(
       std::bind(std::forward<F>(f), std::forward<Args>(args)...)
   );
 
+  std::future<return_type> res = task->get_future();
   {
     std::unique_lock<std::mutex> lock(queue_mutex);
 
@@ -82,6 +85,7 @@ void ThreadPool::enqueue(F&& f, Args&& ...args)
     tasks.emplace([task](){ (*task)(); });
   }
   condition.notify_one();
+  return res;
 }
 
 // the destructor joins all threads
