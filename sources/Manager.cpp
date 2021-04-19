@@ -29,24 +29,26 @@ void Manager::Stop() {
 }
 
 void Manager::AddDownloadTask(UrlToDownload&& to_download) {
-//  return;
+  _networkTasks++;
   _downloadPool.enqueue(&Crawler::Download, &_crawler,
                         std::forward<UrlToDownload>(to_download));
 }
 void Manager::AddParseTask(PageToParse&& to_parse) {
+  _parseTasks++;
   _parsePool.enqueue(&Crawler::Parse, &_crawler,
                      std::forward<PageToParse>(to_parse));
 }
 void Manager::AddWriteTask(std::string&& to_write) {
+  _writerTasks++;
   _writePool.enqueue(&Writer::Write, &_writer,
                      std::forward<std::string>(to_write));
 }
 void Manager::DeleteDownloadTask() {
-  return;
+  _networkTasks--;
 }
 void Manager::DeleteParseTask() {
-  return;
+  _parseTasks--;
 }
 void Manager::DeleteWriteTask() {
-  return;
+  _writerTasks--;
 }
