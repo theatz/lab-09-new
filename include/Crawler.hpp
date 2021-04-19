@@ -8,6 +8,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
+#include <mutex>
 
 #include "gumbo.h"
 #include "IManager.hpp"
@@ -22,17 +23,19 @@ namespace http = boost::beast::http;  // from <boost/beast/http.hpp>
 class Crawler
 {
  public:
-  Crawler(size_t depth, IManager* manager);
+  Crawler(uint32_t& depth, IManager& manager);
   void Download(UrlToDownload&& to_download);
   void Parse(PageToParse&& to_parse);
-  std::string DefineTarget(std::string url);
-  std::string DefineHost(std::string url);
+  std::string DefineTarget(std::string& url);
+  std::string DefineHost(std::string& url);
   bool DefineLink(std::string link);
-  void SearchForLinks(GumboNode* node, PageOutput& pageOutput);
+  void SearchForLinks(GumboNode* node, PageOutput& pageOutput, uint32_t depth);
 
  private:
-  size_t _depth;
-  IManager* _manager;
+  uint32_t _depth;
+  std::mutex _lockParse;
+  std::mutex _lockDownload;
+  IManager& _manager;
 };
 
 

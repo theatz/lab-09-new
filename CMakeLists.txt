@@ -48,6 +48,7 @@ add_library(${PROJECT_NAME} STATIC
         # enum your files and delete this comment
         sources/Manager.cpp
         sources/Crawler.cpp
+        sources/Writer.cpp
         )
 
 

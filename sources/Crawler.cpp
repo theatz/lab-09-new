@@ -9,7 +9,7 @@ void Crawler::Download(UrlToDownload&& to_download) {
     //    std::lock_guard<std::mutex> lk(_)
     auto const host = DefineHost(to_download.url);
 
-    auto const port = "80";                     // https - 443, http - 80
+    auto const port = "80";  // https - 443, http - 80
     auto const target = DefineTarget(to_download.url);  //
     int version = 10;
     // The io_context is required for all I/O
@@ -56,25 +56,33 @@ void Crawler::Download(UrlToDownload&& to_download) {
     if (ec && ec != boost::system::errc::not_connected)
       throw boost::system::system_error{ec};
 
-    //TODO
-    // If we get here then the connection is closed gracefully
-    //    return PageToParse {
-    //      boost::beast::buffers_to_string(res.body().data()), url.depth
-    //    }
-  }
-    //}
-  catch (std::exception const& e) {
-//    std::cerr << "Error: " << e.what() << ":" << url << std::endl;
-//    return PageToParse{"error" url.depth};
-  }
+    {
+      std::lock_guard<std::mutex> guard(_lockDownload);
+      _manager.AddParseTask(
+                  PageToParse{
+                      boost::beast::buffers_to_string(res.body().data()),
+                  to_download.depth});
+      _manager.DeleteDownloadTask();
+    }
 
+    // TODO
+    //  If we get here then the connection is closed gracefully
+    //     return PageToParse {
+    //       boost::beast::buffers_to_string(res.body().data()), url.depth
+    //     }
+  }
+  //}
+  catch (std::exception const& e) {
+    //    std::cerr << "Error: " << e.what() << ":" << url << std::endl;
+    //    return PageToParse{"error" url.depth};
+  }
 }
-std::string Crawler::DefineTarget(std::string url) {
+std::string Crawler::DefineTarget(std::string& url) {
   size_t found = url.find("/");
   if (found != std::string::npos) return url.substr(url.find("/"));
   return "/";
 }
-std::string Crawler::DefineHost(std::string url) {
+std::string Crawler::DefineHost(std::string& url) {
   size_t found = url.find("/");
   if (found != std::string::npos) return url.substr(0, url.find("/"));
   return url;
@@ -85,10 +93,18 @@ void Crawler::Parse(PageToParse&& to_parse) {
   pageOutput.src.clear();
 
   GumboOutput* output = gumbo_parse(to_parse.page.c_str());
-  SearchForLinks(output->root, pageOutput);
+  SearchForLinks(output->root, pageOutput, to_parse.depth);
   gumbo_destroy_output(&kGumboDefaultOptions, output);
 
-//  return pageOutput; TODO
+  {
+    std::lock_guard<std::mutex> guard(_lockParse);
+    for (auto& url : pageOutput.url) _manager.AddDownloadTask(std::move(url));
+    for (auto& src : pageOutput.src) _manager.AddWriteTask(std::move(src));
+    for (auto& src : pageOutput.src) _manager.AddWriteTask(std::move(src));
+
+    _manager.DeleteParseTask();
+  }
+  //  return pageOutput; TODO
 }
 bool Crawler::DefineLink(std::string link) {
   std::size_t found;
@@ -98,17 +114,21 @@ bool Crawler::DefineLink(std::string link) {
   if (found == std::string::npos) return false;
   return true;
 }
-void Crawler::SearchForLinks(GumboNode* node, PageOutput& pageOutput) {
+void Crawler::SearchForLinks(GumboNode* node, PageOutput& pageOutput,
+                             uint32_t depth) {
   if (node->type != GUMBO_NODE_ELEMENT) {
     return;
   }
   GumboAttribute* href;
 
-  if (node->v.element.tag == GUMBO_TAG_A &&
-      (href = gumbo_get_attribute(&node->v.element.attributes, "href"))) {
-    if (DefineLink(href->value)) {
-      std::string push = href->value;
-      pageOutput.url.push_back(UrlToDownload{push.substr(7), pageOutput.url[0].depth + 1}); // todo
+  if (_depth != depth) {
+    if (node->v.element.tag == GUMBO_TAG_A &&
+        (href = gumbo_get_attribute(&node->v.element.attributes, "href"))) {
+      if (DefineLink(href->value)) {
+        std::string push = href->value;
+        pageOutput.url.push_back(UrlToDownload{
+            push.substr(7), depth + 1});
+      }
     }
   }
 
@@ -123,6 +143,10 @@ void Crawler::SearchForLinks(GumboNode* node, PageOutput& pageOutput) {
 
   GumboVector* children = &node->v.element.children;
   for (unsigned int i = 0; i < children->length; ++i) {
-    SearchForLinks(static_cast<GumboNode*>(children->data[i]), pageOutput);
+    SearchForLinks(static_cast<GumboNode*>(children->data[i]),
+                   pageOutput, depth);
   }
 }
+Crawler::Crawler(uint32_t& depth, IManager& manager)
+    : _depth(depth), _manager(manager)
+{}
