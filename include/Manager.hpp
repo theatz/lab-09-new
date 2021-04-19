@@ -18,7 +18,7 @@ class Manager : public IManager
  public:
   Manager(uint32_t& depth, uint32_t& networkThreads, uint32_t& parseThreads,
           std::string& output);
-  void Start(UrlToDownload& to_download);
+  void Start(UrlToDownload&& to_download);
   void Stop();
   void AddDownloadTask(UrlToDownload&& to_download) override;
   void AddParseTask(PageToParse&& to_parse) override;

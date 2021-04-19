@@ -17,9 +17,9 @@ Manager::Manager(uint32_t& depth, uint32_t& networkThreads,
       _writerTasks(0)
 {}
 
-void Manager::Start(UrlToDownload& to_download) {
+void Manager::Start(UrlToDownload&& to_download) {
   _networkTasks++;
-  AddDownloadTask(std::move(to_download));
+  AddDownloadTask(std::forward<UrlToDownload>(to_download));
   while (_networkTasks != 0 && _parseTasks != 0, _writerTasks != 0);
   Stop();
 }

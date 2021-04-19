@@ -35,5 +35,5 @@ int main(int argc, char** argv) {
   }
 
   Manager man(depth, network_threads, parser_threads, output);
-
+  man.Start(UrlToDownload{url, depth});
 }
