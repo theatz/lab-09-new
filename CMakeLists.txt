@@ -49,6 +49,7 @@ add_library(${PROJECT_NAME} STATIC
         sources/Manager.cpp
         sources/Crawler.cpp
         sources/Writer.cpp
+        lib/gumbo.h
         )
 
 
